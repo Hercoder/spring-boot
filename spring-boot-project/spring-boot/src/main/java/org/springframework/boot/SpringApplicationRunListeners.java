@@ -42,8 +42,16 @@ class SpringApplicationRunListeners {
 		this.listeners = new ArrayList<>(listeners);
 	}
 
+	/**
+	 * 启动所有运行监听器，可用于在初始化最早期时做一些工作。
+	 */
 	void starting() {
 		for (SpringApplicationRunListener listener : this.listeners) {
+			// 调用所有运行监听器的starting方法
+			/**
+			 * EventPublishingRunListener的starting方法会向之前初始化的所有ApplicationListener发送一个ApplicationStartingEvent事件。
+			 * ApplicationStartingEvent事件标志着SpringApplication的启动，并且此时ApplicationContext还没有初始化，这是一个早期事件。
+			 */
 			listener.starting();
 		}
 	}

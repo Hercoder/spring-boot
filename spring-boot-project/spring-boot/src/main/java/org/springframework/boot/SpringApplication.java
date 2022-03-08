@@ -320,43 +320,109 @@ public class SpringApplication {
 	 * @return a running {@link ApplicationContext}
 	 */
 	public ConfigurableApplicationContext run(String... args) {
+		//创建并启动一个计时器，用于统计run方法执行时常，即应用启动时常
 		StopWatch stopWatch = new StopWatch();
 		stopWatch.start();
+		// spring的应用程序上下文，代表着spring容器
 		ConfigurableApplicationContext context = null;
+		// 配置headless系统属性，Headless模式是系统的一种配置模式。在该模式下，系统缺少了显示设备、键盘或鼠标。
 		configureHeadlessProperty();
+		/**
+		 * 1、获取全部SpringApplicationRunListener运行监听器并封装到SpringApplicationRunListeners中
+		 * SpringApplicationRunListener的实现也是从spring.factories文件中加载的，其中一个实现就是EventPublishingRunListener
+		 */
 		SpringApplicationRunListeners listeners = getRunListeners(args);
+		/**
+		 * 2、执行所有SpringApplicationRunListener监听器的starting的方法，可以用于非常早期的初始化操作
+		 * EventPublishingRunListener的starting方法会向之前初始化的所有ApplicationListener发送一个ApplicationStartingEvent事件
+		 * ApplicationStartingEvent事件标志着SpringApplication的启动，并且此时ApplicationContext还没有初始化，这是一个早期事件
+		 */
 		listeners.starting();
 		try {
+			// 参数对象，封装了传递进来的启动参数
 			ApplicationArguments applicationArguments = new DefaultApplicationArguments(args);
+			/**
+			 * 3、根据SpringApplicationRunListeners和启动参数准备环境
+			 */
 			ConfigurableEnvironment environment = prepareEnvironment(listeners, applicationArguments);
+			/**
+			 * 配置spring.beaninfo.ignore属性
+			 * 这个配置用来忽略所有自定义的BeanInfo类的搜索，优化启动速度
+			 */
 			configureIgnoreBeanInfo(environment);
+			/**
+			 * 4、打印启动banner图
+			 */
 			Banner printedBanner = printBanner(environment);
+			/**
+			 * 创建spring上下文容器实例，核心方法
+			 */
 			context = createApplicationContext();
+			/**
+			 * 6、准备上下文容器，核心方法
+			 * 该方法会将我们的启动类注入到容器中，后续通过该类启动自动配置
+			 */
 			prepareContext(context, environment, listeners, applicationArguments, printedBanner);
+			/**
+			 * 7、刷新上下文容器，核心方法
+			 * 该方法就是spring容器的启动方法，将会加载bean以及各种配置
+			 * 这个方法的源码非常多，我们在之前的spring启动源码部分花了大量时间已经讲过了，在此不再赘述
+			 */
 			refreshContext(context);
+			/**
+			 * 8、刷新后处理
+			 * 该方法是一个扩展方法，没有提供任何默认的实现，我们自定义的子类可以进行扩展。
+			 */
 			afterRefresh(context, applicationArguments);
+			// springboot项目启动完毕，停止stopWatch计时
 			stopWatch.stop();
+			/*
+			 * 打印容器启动耗时日志
+			 * 例如：Started SpringBootLearnApplication in 13.611 seconds (JVM running for 20.626)
+			 */
 			if (this.logStartupInfo) {
 				new StartupInfoLogger(this.mainApplicationClass).logStarted(getApplicationLog(), stopWatch);
 			}
+			/**
+			 * 9、应用SpringApplicationRunListener监听器的started方法
+			 * EventPublishingRunListener将会发出ApplicationStartedEvent事件，表明容器已启动
+			 */
 			listeners.started(context);
+			/**
+			 * 10、执行容器中的ApplicationRunner和CommandLineRunner类型的bean的run方法
+			 * 这也是一个扩展点，用于实现spring容器启动后需要做的事
+			 */
 			callRunners(context, applicationArguments);
 		}
 		catch (Throwable ex) {
+			// 如果启动过程中出现了异常，那么会将异常信息加入到exceptionReporters中并抛出IllegalStateException
 			handleRunFailure(context, ex, listeners);
 			throw new IllegalStateException(ex);
 		}
 
 		try {
+			/**
+			 * 11、应用SpringApplicationRunListener监听器的running方法
+			 * EventPublishingRunListener将会发出ApplicationReadyEvent事件，表明容器已就绪，可以被使用了
+			 */
 			listeners.running(context);
 		}
 		catch (Throwable ex) {
+			// 如果发布事件的过程中出现了异常，那么会将异常信息加入到exceptionReporters中并抛出IllegalStateException
 			handleRunFailure(context, ex, null);
 			throw new IllegalStateException(ex);
 		}
+		//返回容器
 		return context;
 	}
 
+	/**
+	 * 启动监听器之后，首先需要准备容器环境，根据SpringApplicationRunListeners和启动参数准备环境。这里会对外部配置的参数进行设置，
+	 * 比如端口号之类的。
+	 * @param listeners
+	 * @param applicationArguments
+	 * @return
+	 */
 	private ConfigurableEnvironment prepareEnvironment(SpringApplicationRunListeners listeners,
 			ApplicationArguments applicationArguments) {
 		// Create and configure the environment
@@ -426,13 +492,26 @@ public class SpringApplication {
 		refresh((ApplicationContext) context);
 	}
 
+	/**
+	 * 配置headless系统属性，Headless模式是系统的一种配置模式。在该模式下，系统缺少了显示设备、键盘或鼠标。默认为true。
+	 */
 	private void configureHeadlessProperty() {
 		System.setProperty(SYSTEM_PROPERTY_JAVA_AWT_HEADLESS,
 				System.getProperty(SYSTEM_PROPERTY_JAVA_AWT_HEADLESS, Boolean.toString(this.headless)));
 	}
 
+	/**
+	 * 获取运行监听器SpringApplicationRunListener并封装到SpringApplicationRunListeners中
+	 * @param args
+	 * @return
+	 */
 	private SpringApplicationRunListeners getRunListeners(String[] args) {
 		Class<?>[] types = new Class<?>[] { SpringApplication.class, String[].class };
+		/**
+		 * 借助SpringFactoriesLoader获取所有引入的jar包中和当前类路径下的META-INF/spring.factories文件中指定类型的实例
+		 * 这里指定类型为SpringApplicationRunListener，默认情况下spring.factories文件中有一个实现，即EventPublishingRunListener
+		 * 最终所有的SpringApplicationRunListener集合会被封装到一个SpringApplicationRunListeners对象中。
+		 */
 		return new SpringApplicationRunListeners(logger,
 				getSpringFactoriesInstances(SpringApplicationRunListener.class, types, this, args));
 	}
@@ -447,6 +526,16 @@ public class SpringApplication {
 		return getSpringFactoriesInstances(type, new Class<?>[] {});
 	}
 
+	/**
+	 * 借助SpringFactoriesLoader获取所有引入的jar包中和当前类路径下的META-INF/spring.factories文件中指定类型的实例
+	 * spring.factories 文件必须是 Properties 格式，其中 key 是接口或抽象类的完全限定名称，value 是逗号分隔的实现类名称列表。
+	 *
+	 * @param type
+	 * @param parameterTypes
+	 * @param args
+	 * @param <T>
+	 * @return
+	 */
 	private <T> Collection<T> getSpringFactoriesInstances(Class<T> type, Class<?>[] parameterTypes, Object... args) {
 		ClassLoader classLoader = getClassLoader();
 
