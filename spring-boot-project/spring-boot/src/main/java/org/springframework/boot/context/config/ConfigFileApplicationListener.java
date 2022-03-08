@@ -104,6 +104,10 @@ import org.springframework.util.StringUtils;
  * locations or specific files.
  * <p>
  *
+ *     不同的监听器在接收到不同的事件之后，会进行不同的处理。这里就有一个非常关键的监听器ConfigFileApplicationListener，
+ *     它会监听ApplicationEnvironmentPreparedEvent事件，并在监听到该事件的发布之后，去加载项目中的 properties 和yml配置文件并添加到Environment的PropertySources列表里，
+ *     所以他是一个很关键的监听器。
+ *
  * @author Dave Syer
  * @author Phillip Webb
  * @author Stephane Nicoll
@@ -118,6 +122,15 @@ public class ConfigFileApplicationListener implements EnvironmentPostProcessor, 
 	private static final String DEFAULT_PROPERTIES = "defaultProperties";
 
 	// Note the order is from least to most specific (last one wins)
+
+	/**
+	 * 注意这个顺序
+	 *
+	 * 项目根目录下的/config目录下的配置文件。
+	 * 项目根目录下的配置文件。
+	 * 项目类路径（resources）下的/config目录下的配置文件。
+	 * 项目类路径（resources）下的配置文件。
+	 */
 	private static final String DEFAULT_SEARCH_LOCATIONS = "classpath:/,classpath:/config/,file:./,file:./config/*/,file:./config/";
 
 	private static final String DEFAULT_NAMES = "application";
@@ -185,9 +198,16 @@ public class ConfigFileApplicationListener implements EnvironmentPostProcessor, 
 				|| ApplicationPreparedEvent.class.isAssignableFrom(eventType);
 	}
 
+	/**
+	 * 下面是ConfigFileApplicationListener处理事件的方法，其内部会从spring.factories文件中加载加载环境后处理器EnvironmentPostProcessor，
+	 * 然后委托给EnvironmentPostProcessor来处理事件。而ConfigFileApplicationListener本身也是一个EnvironmentPostProcessor，他的postProcessEnvironment方法就会去加载配置文件。
+	 *
+	 * @param event
+	 */
 	@Override
 	public void onApplicationEvent(ApplicationEvent event) {
 		if (event instanceof ApplicationEnvironmentPreparedEvent) {
+			//如果是坏境准备完毕事件，那么调用该方法处理
 			onApplicationEnvironmentPreparedEvent((ApplicationEnvironmentPreparedEvent) event);
 		}
 		if (event instanceof ApplicationPreparedEvent) {
@@ -195,10 +215,18 @@ public class ConfigFileApplicationListener implements EnvironmentPostProcessor, 
 		}
 	}
 
+	/**
+	 * 处理环境准备就绪事件的方法
+	 * @param event
+	 */
 	private void onApplicationEnvironmentPreparedEvent(ApplicationEnvironmentPreparedEvent event) {
+		//加载环境后处理器EnvironmentPostProcessor，很明显其也是从spring.factories文件中加载的
 		List<EnvironmentPostProcessor> postProcessors = loadPostProcessors();
+		//将自己页加入其中，因为ConfigFileApplicationListener本身也是一个EnvironmentPostProcessor
 		postProcessors.add(this);
+		//排序
 		AnnotationAwareOrderComparator.sort(postProcessors);
+		//循环调用EnvironmentPostProcessor的postProcessEnvironment方法执行环境处理
 		for (EnvironmentPostProcessor postProcessor : postProcessors) {
 			postProcessor.postProcessEnvironment(event.getEnvironment(), event.getSpringApplication());
 		}
@@ -208,6 +236,11 @@ public class ConfigFileApplicationListener implements EnvironmentPostProcessor, 
 		return SpringFactoriesLoader.loadFactories(EnvironmentPostProcessor.class, getClass().getClassLoader());
 	}
 
+	/**
+	 * 方法之一
+	 * @param environment the environment to post-process
+	 * @param application the application to which the environment belongs
+	 */
 	@Override
 	public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
 		addPropertySources(environment, application.getResourceLoader());
@@ -225,7 +258,14 @@ public class ConfigFileApplicationListener implements EnvironmentPostProcessor, 
 	 * @see #addPostProcessors(ConfigurableApplicationContext)
 	 */
 	protected void addPropertySources(ConfigurableEnvironment environment, ResourceLoader resourceLoader) {
+		//随机数属性源加入到环境对象中
 		RandomValuePropertySource.addToEnvironment(environment);
+		/**
+		 * 关键代码
+		 * 通过ConfigFileApplicationListener的内部类Loader来加载配置文件
+		 *
+		 * 从ConfigFileApplicationListener这个类中，就可以得知配置文件的加载位置
+		 */
 		new Loader(environment, resourceLoader).load();
 	}
 

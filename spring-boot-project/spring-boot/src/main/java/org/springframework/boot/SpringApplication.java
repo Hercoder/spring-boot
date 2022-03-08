@@ -704,6 +704,11 @@ public class SpringApplication {
 		}
 	}
 
+	/**
+	 * 这个方法用于打印banner图，首先会查找自定义的banner资源，banner可以是图片或者txt文本格式，默认自定义资源是txt格式，名字是banner.txt，位于resources目录下。
+	 * @param environment
+	 * @return
+	 */
 	private Banner printBanner(ConfigurableEnvironment environment) {
 		if (this.bannerMode == Banner.Mode.OFF) {
 			return null;
@@ -711,6 +716,7 @@ public class SpringApplication {
 		ResourceLoader resourceLoader = (this.resourceLoader != null) ? this.resourceLoader
 				: new DefaultResourceLoader(null);
 		SpringApplicationBannerPrinter bannerPrinter = new SpringApplicationBannerPrinter(resourceLoader, this.banner);
+		//banner输出到日志文件中还是控制台，默认是CONSOLE，即控制台
 		if (this.bannerMode == Mode.LOG) {
 			return bannerPrinter.print(environment, this.mainApplicationClass, logger);
 		}
@@ -721,15 +727,23 @@ public class SpringApplication {
 	 * Strategy method used to create the {@link ApplicationContext}. By default this
 	 * method will respect any explicitly set application context or application context
 	 * class before falling back to a suitable default.
+	 *
+	 * 在准备好环境并且加载了配置文件之后，通过createApplicationContext方法创建spring容器对象，
+	 * 基于servlet的web项目容器是AnnotationConfigServletWebServerApplicationContext类型。
+	 *
+	 *
 	 * @return the application context (not yet refreshed)
 	 * @see #setApplicationContextClass(Class)
 	 */
 	protected ConfigurableApplicationContext createApplicationContext() {
 		Class<?> contextClass = this.applicationContextClass;
+		//如果没有设置容器类型
 		if (contextClass == null) {
 			try {
+				//根据web应用程序类型选择spring容器的类型
 				switch (this.webApplicationType) {
-				case SERVLET:
+					//一般都是servlet应用，因此spring容器就是AnnotationConfigServletWebServerApplicationContext类型
+					case SERVLET:
 					contextClass = Class.forName(DEFAULT_SERVLET_WEB_CONTEXT_CLASS);
 					break;
 				case REACTIVE:
