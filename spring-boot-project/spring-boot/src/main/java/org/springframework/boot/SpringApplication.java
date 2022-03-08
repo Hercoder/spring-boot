@@ -393,6 +393,9 @@ public class SpringApplication {
 			/**
 			 * 10、执行容器中的ApplicationRunner和CommandLineRunner类型的bean的run方法
 			 * 这也是一个扩展点，用于实现spring容器启动后需要做的事
+			 *
+			 * runner是一类特殊的bean，如果该bean属于ApplicationRunner或者CommandLineRunner类型，那么该bean就被称为runner，
+			 * 那么在springboot启动之后会自动调用该bean的run方法，这里就是调用的源码！
 			 */
 			callRunners(context, applicationArguments);
 		}
@@ -460,45 +463,97 @@ public class SpringApplication {
 		}
 	}
 
+	/**
+	 * 该方法用于准备容器上下文，主要是进行ApplicationContextInitializer扩展点的应用，以及打印启动日志，比如激活的profiles图，
+	 * 设置是否允许同名bean覆盖（默认不允许），是否懒加载（默认不允许）等操作。
+	 *
+	 * 最重要的是该方法会将我们的启动类注入到springboot的容器上下文内部的beanfactory中，有了这一步，后面就可以解析启动类的注解和各种配置，
+	 * 进而执行springboot的自动配置（启动类上有@SpringBootApplication注解，还有其他各种注解）。
+	 *
+	 * @param context
+	 * @param environment
+	 * @param listeners
+	 * @param applicationArguments
+	 * @param printedBanner
+	 */
 	private void prepareContext(ConfigurableApplicationContext context, ConfigurableEnvironment environment,
 			SpringApplicationRunListeners listeners, ApplicationArguments applicationArguments, Banner printedBanner) {
+		//设置环境变量
 		context.setEnvironment(environment);
+		/*
+		 * 对于容器的后处理，会尝试注入BeanNameGenerator，设置resourceLoader，设置ConversionService等操作
+		 * 子类可以根据需要应用额外的处理。
+		 */
 		postProcessApplicationContext(context);
+		/*
+		 * 应用ApplicationContextInitializer扩展点的initialize方法
+		 * 从而实现自定义容器的逻辑，这是一个扩展点
+		 */
 		applyInitializers(context);
+		/*
+		 * 应用SpringApplicationRunListener监听器的contextPrepared方法
+		 * EventPublishingRunListener将会发出ApplicationContextInitializedEvent事件
+		 */
 		listeners.contextPrepared(context);
+		//是否打印启动相关日志，默认true
 		if (this.logStartupInfo) {
+			//记录启动日志信息，即banner图日志下面的第一行日志信息
 			logStartupInfo(context.getParent() == null);
+			//记录激活的配置环境profiles日志信息
+			//即The following profiles are active: dev，或者No active profile set, falling back to default profiles:
 			logStartupProfileInfo(context);
 		}
 		// Add boot specific singleton beans
+		// 获取此上下文内部的beanFactory，即bean工厂
 		ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
+		//将applicationArguments作为一个单例对象注册到bean工厂中
 		beanFactory.registerSingleton("springApplicationArguments", applicationArguments);
 		if (printedBanner != null) {
+			//将banner作为一个单例对象注册到bean工厂中
 			beanFactory.registerSingleton("springBootBanner", printedBanner);
 		}
+		//如果是该类型，servlet项目默认就是该类型
 		if (beanFactory instanceof DefaultListableBeanFactory) {
+			//设置是否允许同名bean的覆盖，这里默认false，如果有同名bean就会抛出异常
 			((DefaultListableBeanFactory) beanFactory)
 					.setAllowBeanDefinitionOverriding(this.allowBeanDefinitionOverriding);
 		}
+		//设置是否允许懒加载，即延迟初始化bean，即仅在需要bean时才创建该bean，并注入其依赖项。
+		//默认false，即所有定义的bean及其依赖项都是在创建应用程序上下文时创建的。
 		if (this.lazyInitialization) {
 			context.addBeanFactoryPostProcessor(new LazyInitializationBeanFactoryPostProcessor());
 		}
 		// Load the sources
+		// 加载启动源，默认就是我们的启动类
 		Set<Object> sources = getAllSources();
 		Assert.notEmpty(sources, "Sources must not be empty");
+		/*
+		 * 加载启动类，并将启动类注入到容器，关键方法
+		 * 有了这一步，后面就可以解析启动类上的注解和各种配置，进行执行springboot的自动配置
+		 */
 		load(context, sources.toArray(new Object[0]));
+		/*
+		 * 应用SpringApplicationRunListener监听器的contextLoaded方法
+		 * EventPublishingRunListener将会发出ApplicationPreparedEvent事件
+		 */
 		listeners.contextLoaded(context);
 	}
 
 	private void refreshContext(ConfigurableApplicationContext context) {
+		//判断是否注册销毁容器的钩子方法，默认true
 		if (this.registerShutdownHook) {
 			try {
+				//注册销毁容器时的钩子
+				//该方法向 JVM 运行时环境注册一个关闭钩子函数，在 JVM 关闭时会先关闭此上下文，即执行此上线文的close方法
 				context.registerShutdownHook();
 			}
 			catch (AccessControlException ex) {
 				// Not allowed in some environments.
 			}
 		}
+		/*
+		 * 刷新容器
+		 */
 		refresh((ApplicationContext) context);
 	}
 
@@ -758,6 +813,7 @@ public class SpringApplication {
 						"Unable create a default ApplicationContext, please specify an ApplicationContextClass", ex);
 			}
 		}
+		//调用无参构造器反射创建实例
 		return (ConfigurableApplicationContext) BeanUtils.instantiateClass(contextClass);
 	}
 
@@ -939,11 +995,19 @@ public class SpringApplication {
 	protected void afterRefresh(ConfigurableApplicationContext context, ApplicationArguments args) {
 	}
 
+	/**
+	 *
+	 * @param context
+	 * @param args
+	 */
 	private void callRunners(ApplicationContext context, ApplicationArguments args) {
+		//从容器中查找全部ApplicationRunner和CommandLineRunner类型的bean实例，并且加入到集合中
 		List<Object> runners = new ArrayList<>();
 		runners.addAll(context.getBeansOfType(ApplicationRunner.class).values());
 		runners.addAll(context.getBeansOfType(CommandLineRunner.class).values());
+		//排序
 		AnnotationAwareOrderComparator.sort(runners);
+		//依次运行这些runner
 		for (Object runner : new LinkedHashSet<>(runners)) {
 			if (runner instanceof ApplicationRunner) {
 				callRunner((ApplicationRunner) runner, args);
@@ -956,6 +1020,7 @@ public class SpringApplication {
 
 	private void callRunner(ApplicationRunner runner, ApplicationArguments args) {
 		try {
+			//运行ApplicationRunner，参数就是当前的配置参数
 			(runner).run(args);
 		}
 		catch (Exception ex) {
@@ -965,6 +1030,7 @@ public class SpringApplication {
 
 	private void callRunner(CommandLineRunner runner, ApplicationArguments args) {
 		try {
+			//运行CommandLineRunner，参数就是当前返回传递给应用程序的原始未处理参数
 			(runner).run(args.getSourceArgs());
 		}
 		catch (Exception ex) {
