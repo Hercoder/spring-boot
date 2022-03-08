@@ -67,8 +67,10 @@ public enum WebApplicationType {
 		// 并且不存在org.springframework.web.servlet.DispatcherServlet类型
 		//并且不存在org.glassfish.jersey.servlet.ServletContainer类型
 		//那么设置为REACTIVE，即响应式web应用程序
-		if (ClassUtils.isPresent(WEBFLUX_INDICATOR_CLASS, null) && !ClassUtils.isPresent(WEBMVC_INDICATOR_CLASS, null)
-				&& !ClassUtils.isPresent(JERSEY_INDICATOR_CLASS, null)) {
+		boolean present = ClassUtils.isPresent(WEBFLUX_INDICATOR_CLASS, null);
+		boolean present1 = ClassUtils.isPresent(WEBMVC_INDICATOR_CLASS, null);
+		boolean present2 = ClassUtils.isPresent(JERSEY_INDICATOR_CLASS, null);
+		if (present && !present1 && !present2) {
 			return WebApplicationType.REACTIVE;
 		}
 		//如果不存在javax.servlet.Servlet类型，或者不存在org.springframework.web.context.ConfigurableWebApplicationContext类型
