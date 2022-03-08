@@ -342,6 +342,7 @@ public class SpringApplication {
 		try {
 			// 参数对象，封装了传递进来的启动参数
 			ApplicationArguments applicationArguments = new DefaultApplicationArguments(args);
+
 			/**
 			 * 3、根据SpringApplicationRunListeners和启动参数准备环境
 			 */

@@ -72,6 +72,13 @@ class SimpleMainTests {
 	}
 
 	@Test
+	void configClassContext1(CapturedOutput output) throws Exception {
+		String[] strings = null;
+		SpringApplication.run(SimpleMainTests.class, strings);
+		assertThat(output).contains(SPRING_STARTUP);
+	}
+
+	@Test
 	void xmlContext(CapturedOutput output) throws Exception {
 		SpringApplication.main(getArgs("org/springframework/boot/sample-beans.xml"));
 		assertThat(output).contains(SPRING_STARTUP);
