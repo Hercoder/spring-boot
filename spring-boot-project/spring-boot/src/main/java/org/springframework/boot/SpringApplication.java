@@ -195,10 +195,12 @@ public class SpringApplication {
 
 	private static final Log logger = LogFactory.getLog(SpringApplication.class);
 
+	// 主要bean来源集合
 	private Set<Class<?>> primarySources;
 
 	private Set<String> sources = new LinkedHashSet<>();
 
+	// 主应用程序类
 	private Class<?> mainApplicationClass;
 
 	private Banner.Mode bannerMode = Banner.Mode.CONSOLE;
@@ -219,14 +221,17 @@ public class SpringApplication {
 
 	private Class<? extends ConfigurableApplicationContext> applicationContextClass;
 
+	// 应用程序类型
 	private WebApplicationType webApplicationType;
 
 	private boolean headless = true;
 
 	private boolean registerShutdownHook = true;
 
+	// 应用程序初始化器集合
 	private List<ApplicationContextInitializer<?>> initializers;
 
+	// 应用程序监听器集合
 	private List<ApplicationListener<?>> listeners;
 
 	private Map<String, Object> defaultProperties;
@@ -250,6 +255,7 @@ public class SpringApplication {
 	 * @see #setSources(Set)
 	 */
 	public SpringApplication(Class<?>... primarySources) {
+		//空的资源加载器
 		this(null, primarySources);
 	}
 
@@ -258,6 +264,9 @@ public class SpringApplication {
 	 * beans from the specified primary sources (see {@link SpringApplication class-level}
 	 * documentation for details. The instance can be customized before calling
 	 * {@link #run(String...)}.
+	 *
+	 * 创建一个新的SpringApplication实例，并从指定的来源加载bean的信息
+	 *
 	 * @param resourceLoader the resource loader to use
 	 * @param primarySources the primary bean sources
 	 * @see #run(Class, String[])
@@ -267,10 +276,15 @@ public class SpringApplication {
 	public SpringApplication(ResourceLoader resourceLoader, Class<?>... primarySources) {
 		this.resourceLoader = resourceLoader;
 		Assert.notNull(primarySources, "PrimarySources must not be null");
+		//将主要来源设置到一个集合里面，默认来源就只有一个启动类的class
 		this.primarySources = new LinkedHashSet<>(Arrays.asList(primarySources));
+		//设置Web应用程序类型，可能是SERVLET程序，也可能是REACTIVE响应式程序，还有可能是NONE，即非web应用程序
 		this.webApplicationType = WebApplicationType.deduceFromClasspath();
+		//设置ApplicationContextInitializer，应用程序初始化器。从META-INF/spring.factories文件中获取
 		setInitializers((Collection) getSpringFactoriesInstances(ApplicationContextInitializer.class));
+		//设置ApplicationListener，应用程序监听器。从META-INF/spring.factories文件中获取
 		setListeners((Collection) getSpringFactoriesInstances(ApplicationListener.class));
+		//设置主应用程序类，一般就是Spring boot项目的启动类
 		this.mainApplicationClass = deduceMainApplicationClass();
 	}
 
@@ -413,19 +427,41 @@ public class SpringApplication {
 				getSpringFactoriesInstances(SpringApplicationRunListener.class, types, this, args));
 	}
 
+	/**
+	 * 借助SpringFactoriesLoader获取所有引入的jar包中和当前类路径下的META-INF/spring.factories文件中指定类型的实例
+	 * @param type
+	 * @param <T>
+	 * @return
+	 */
 	private <T> Collection<T> getSpringFactoriesInstances(Class<T> type) {
 		return getSpringFactoriesInstances(type, new Class<?>[] {});
 	}
 
 	private <T> Collection<T> getSpringFactoriesInstances(Class<T> type, Class<?>[] parameterTypes, Object... args) {
 		ClassLoader classLoader = getClassLoader();
+
+		//借助SpringFactoriesLoader获取所有引入的jar包中和当前类路径下的META-INF/spring.factories文件中指定类型的实例名称
+		//spring.factories 文件必须是 Properties 格式，其中 key 是接口或抽象类的完全限定名称，value 是逗号分隔的实现类名称列表。
+		//使用名称Set集合保存数据，确保唯一以防止重复
 		// Use names and ensure unique to protect against duplicates
 		Set<String> names = new LinkedHashSet<>(SpringFactoriesLoader.loadFactoryNames(type, classLoader));
+		//根据获取的类型全路径名反射创建实例
 		List<T> instances = createSpringFactoriesInstances(type, parameterTypes, classLoader, args, names);
+		//对实例进行排序
 		AnnotationAwareOrderComparator.sort(instances);
 		return instances;
 	}
 
+	/**
+	 * 该方法将会对上面方法加载的全部ApplicationContextInitializer的实现进行实例化，实际上就是一系列反射创建对象的过程。
+	 * @param type
+	 * @param parameterTypes
+	 * @param classLoader
+	 * @param args
+	 * @param names
+	 * @param <T>
+	 * @return
+	 */
 	@SuppressWarnings("unchecked")
 	private <T> List<T> createSpringFactoriesInstances(Class<T> type, Class<?>[] parameterTypes,
 			ClassLoader classLoader, Object[] args, Set<String> names) {
@@ -1172,6 +1208,18 @@ public class SpringApplication {
 
 	/**
 	 * Sets the {@link ApplicationContextInitializer} that will be applied to the Spring
+	 *
+	 * 设置ApplicationContextInitializer初始化器，后面初始化的时候会使用到，在Spring上下文被刷新之前进行初始化的操作，
+	 * 例如注入Property Sources属性源或者是激活Profiles环境。
+	 *
+	 * 这里会借助SpringFactoriesLoader工具类获取所有引入的jar包中和当前类路径下的META-INF/spring.factories文件中指定类型的实例，
+	 * 也就是ApplicationContextInitializer类型的实例。
+	 *
+	 * spring.factories 是Spirng boot提供的一种扩展机制，实际上spring.factories就是仿照Java中的SPI扩展机制来实现的Spring Boot自己的SPI机制，
+	 * 它是实现 Spring Boot的自动配置的基础。
+	 *
+	 * spring.factories该文件必须是 Properties 格式，其中 key 是接口或抽象类的完全限定名称，value 是逗号分隔的实现类名称列表。
+	 *
 	 * {@link ApplicationContext}.
 	 * @param initializers the initializers to set
 	 */

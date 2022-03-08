@@ -50,7 +50,10 @@ class SimpleMainTests {
 
 	@Test
 	void basePackageScan(CapturedOutput output) throws Exception {
-		SpringApplication.main(getArgs(ClassUtils.getPackageName(getClass()) + ".sampleconfig"));
+		String packageName = ClassUtils.getPackageName(getClass());
+		String[] args = getArgs(packageName + ".sampleconfig");
+//		SpringApplication.main(getArgs(ClassUtils.getPackageName(getClass()) + ".sampleconfig"));
+		SpringApplication.main(args);
 		assertThat(output).contains(SPRING_STARTUP);
 	}
 
