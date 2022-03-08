@@ -326,6 +326,7 @@ public class SpringApplication {
 		// spring的应用程序上下文，代表着spring容器
 		ConfigurableApplicationContext context = null;
 		// 配置headless系统属性，Headless模式是系统的一种配置模式。在该模式下，系统缺少了显示设备、键盘或鼠标。
+		// 这里就是 System.getProperty 属性设置
 		configureHeadlessProperty();
 		/**
 		 * 1、获取全部SpringApplicationRunListener运行监听器并封装到SpringApplicationRunListeners中
@@ -356,6 +357,7 @@ public class SpringApplication {
 			Banner printedBanner = printBanner(environment);
 			/**
 			 * 创建spring上下文容器实例，核心方法
+			 * org.springframework.context.annotation.AnnotationConfigApplicationContext
 			 */
 			context = createApplicationContext();
 			/**
@@ -426,15 +428,23 @@ public class SpringApplication {
 	private ConfigurableEnvironment prepareEnvironment(SpringApplicationRunListeners listeners,
 			ApplicationArguments applicationArguments) {
 		// Create and configure the environment
+		// 获取或者创建环境对象，一般都是StandardServletEnvironment类型
 		ConfigurableEnvironment environment = getOrCreateEnvironment();
+		// 配置环境
+		// 主要配置属性源和激活的环境，将来自外部的配置源放在属性源集合的头部
 		configureEnvironment(environment, applicationArguments.getSourceArgs());
+		//继续封装属性源
 		ConfigurationPropertySources.attach(environment);
+		// 环境准备完毕之后，向所有的ApplicationListener发出ApplicationEnvironmentPreparedEvent事件
 		listeners.environmentPrepared(environment);
+		// 将环境对象绑定到SpringApplication
 		bindToSpringApplication(environment);
+		// 如果不是自定义的环境变量，若有必要则进行转换，一般都需要转换
 		if (!this.isCustomEnvironment) {
 			environment = new EnvironmentConverter(getClassLoader()).convertEnvironmentIfNecessary(environment,
 					deduceEnvironmentClass());
 		}
+		//继续封装属性源
 		ConfigurationPropertySources.attach(environment);
 		return environment;
 	}
@@ -584,12 +594,20 @@ public class SpringApplication {
 		return instances;
 	}
 
+	/**
+	 * SpringApplication的方法
+	 * 创建和配置环境
+	 * @return
+	 */
 	private ConfigurableEnvironment getOrCreateEnvironment() {
+		//如果已存在就直接返回
 		if (this.environment != null) {
 			return this.environment;
 		}
+		//根据应用程序类型创建不同的环境对象
 		switch (this.webApplicationType) {
-		case SERVLET:
+			//一般都是SERVLET项目，因此一般都是StandardServletEnvironment
+			case SERVLET:
 			return new StandardServletEnvironment();
 		case REACTIVE:
 			return new StandardReactiveWebEnvironment();
@@ -604,17 +622,22 @@ public class SpringApplication {
 	 * {@link #configureProfiles(ConfigurableEnvironment, String[])} in that order.
 	 * Override this method for complete control over Environment customization, or one of
 	 * the above for fine-grained control over property sources or profiles, respectively.
+	 * 配置环境
+	 *
 	 * @param environment this application's environment
 	 * @param args arguments passed to the {@code run} method
 	 * @see #configureProfiles(ConfigurableEnvironment, String[])
 	 * @see #configurePropertySources(ConfigurableEnvironment, String[])
 	 */
 	protected void configureEnvironment(ConfigurableEnvironment environment, String[] args) {
+		//是否需要添加转换服务，默认需要
 		if (this.addConversionService) {
 			ConversionService conversionService = ApplicationConversionService.getSharedInstance();
 			environment.setConversionService((ConfigurableConversionService) conversionService);
 		}
+		//配置属性源，所谓属性源实际上可以看做是多个配置集的集合，来自外部的配置集将会被放在配置集合的首位
 		configurePropertySources(environment, args);
+		//配置激活的环境
 		configureProfiles(environment, args);
 	}
 
@@ -1390,6 +1413,11 @@ public class SpringApplication {
 	/**
 	 * Static helper that can be used to run a {@link SpringApplication} from the
 	 * specified sources using default settings and user supplied arguments.
+	 *
+	 * 创建 ApplicationContextInitializer 实例
+	 * 创建 ApplicationListener 实例
+	 * 确定主启动类
+	 *
 	 * @param primarySources the primary sources to load
 	 * @param args the application arguments (usually passed from a Java main method)
 	 * @return the running {@link ApplicationContext}

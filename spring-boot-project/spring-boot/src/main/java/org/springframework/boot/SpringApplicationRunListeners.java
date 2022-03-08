@@ -56,7 +56,14 @@ class SpringApplicationRunListeners {
 		}
 	}
 
+	/**
+	 * 在环境准备好之后，会向所有的SpringApplicationRunListener发布事件。而EventPublishingRunListener又会通过内部的广播器向所有的
+	 * ApplicationListener发出ApplicationEnvironmentPreparedEvent事件，即会发布环境已准备事件。
+	 *
+	 * @param environment
+	 */
 	void environmentPrepared(ConfigurableEnvironment environment) {
+		//调用所有SpringApplicationRunListener的environmentPrepared方法
 		for (SpringApplicationRunListener listener : this.listeners) {
 			listener.environmentPrepared(environment);
 		}

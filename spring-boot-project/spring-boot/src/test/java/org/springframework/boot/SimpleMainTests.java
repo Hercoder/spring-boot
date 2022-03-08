@@ -48,6 +48,14 @@ class SimpleMainTests {
 		assertThatIllegalArgumentException().isThrownBy(() -> SpringApplication.main(getArgs()));
 	}
 
+	/**
+	 * ["--spring.main.web-application-type=none",
+	 * "--spring.main.show-banner=OFF",
+	 * "--spring.main.register-shutdownHook=false",
+	 * "--spring.main.sources=org.springframework.boot.sampleconfig"]
+	 * @param output
+	 * @throws Exception
+	 */
 	@Test
 	void basePackageScan(CapturedOutput output) throws Exception {
 		String packageName = ClassUtils.getPackageName(getClass());
