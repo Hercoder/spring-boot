@@ -288,11 +288,18 @@ public class SpringApplication {
 		this.mainApplicationClass = deduceMainApplicationClass();
 	}
 
+	/**
+	 * 推断应用程序主类
+	 * 该方法推断应用程序主类，一般就是Spring boot项目的启动类，也就是调用main方法的类。
+	 * @return
+	 */
 	private Class<?> deduceMainApplicationClass() {
 		try {
+			//获取堆栈跟踪记录
 			StackTraceElement[] stackTrace = new RuntimeException().getStackTrace();
 			for (StackTraceElement stackTraceElement : stackTrace) {
 				if ("main".equals(stackTraceElement.getMethodName())) {
+					//找到调用main方法的类，返回该类的class
 					return Class.forName(stackTraceElement.getClassName());
 				}
 			}
@@ -305,6 +312,9 @@ public class SpringApplication {
 
 	/**
 	 * Run the Spring application, creating and refreshing a new
+	 *
+	 * 该方法将会运行SpringApplication实例，并且创建并刷新一个新的ApplicationContext。该方法就是Spring boot项目启动的关键方法。
+	 *
 	 * {@link ApplicationContext}.
 	 * @param args the application arguments (usually passed from a Java main method)
 	 * @return a running {@link ApplicationContext}
@@ -465,12 +475,16 @@ public class SpringApplication {
 	@SuppressWarnings("unchecked")
 	private <T> List<T> createSpringFactoriesInstances(Class<T> type, Class<?>[] parameterTypes,
 			ClassLoader classLoader, Object[] args, Set<String> names) {
+		//最终返回的对象集合
 		List<T> instances = new ArrayList<>(names.size());
 		for (String name : names) {
 			try {
+				//根据全路径名获取对应的class对象
 				Class<?> instanceClass = ClassUtils.forName(name, classLoader);
 				Assert.isAssignable(type, instanceClass);
+				//根据参数获取指定的构造器
 				Constructor<?> constructor = instanceClass.getDeclaredConstructor(parameterTypes);
+				//通过构造器反射创建对象
 				T instance = (T) BeanUtils.instantiateClass(constructor, args);
 				instances.add(instance);
 			}
