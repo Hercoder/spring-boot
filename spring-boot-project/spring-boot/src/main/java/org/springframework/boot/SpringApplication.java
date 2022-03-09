@@ -341,6 +341,7 @@ public class SpringApplication {
 		listeners.starting();
 		try {
 			// 参数对象，封装了传递进来的启动参数
+			// DefaultApplicationArguments
 			ApplicationArguments applicationArguments = new DefaultApplicationArguments(args);
 
 			/**
